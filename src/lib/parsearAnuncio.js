@@ -45,7 +45,7 @@ export function parsearAnuncio(texto) {
 }
 
 function extraerLink(texto) {
-  const match = texto.match(/https?:\/\/[^\s)"'<>]*idealista\.com[^\s)"'<>]*/i)
+  const match = texto.match(/https?:\/\/[^\s)"'<>]*(?:idealista|grupotorres)\.com[^\s)"'<>]*/i)
   if (!match) return null
   // Quita los parámetros de seguimiento para dejar el enlace limpio
   return match[0].split('?')[0]
@@ -62,11 +62,11 @@ function extraerPrecio(texto) {
 
 function extraerSuperficie(texto) {
   // "280 m² construidos" es el dato más fiable
-  let match = texto.match(/(\d+)\s*m²\s*construidos/i)
+  let match = texto.match(/(\d+)\s*m[²2]\s*construidos/i)
   if (match) return Number(match[1])
 
   // Si no, el primer "280 m²" suelto
-  match = texto.match(/(\d+)\s*m²/i)
+  match = texto.match(/(\d+)\s*m[²2]\b/i)
   if (match) return Number(match[1])
 
   return null

@@ -1,27 +1,28 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabaseClient'
-import { aNumero, aTexto } from './lib/formato'
+import { aNumero, aTexto, normalizar } from './lib/formato'
 import InmuebleCard from './InmuebleCard'
 import DetalleInmueble from './DetalleInmueble'
 import FormularioNuevo from './FormularioNuevo'
 import Hoja from './Hoja'
-import { IconoFlecha, IconoMas } from './iconos'
+import PanelCifras from './PanelCifras'
+import { IconoBuscar, IconoMas } from './iconos'
 
 const SECCIONES = [
   {
     valor: 'candidata',
     titulo: 'Candidatas',
-    vacio: 'Todavía no hay candidatas. Marca un inmueble como candidata cuando queráis seguirlo de cerca.',
+    vacio: 'Todavía no hay candidatas. Pasa aquí los que queráis seguir de cerca.',
   },
   {
     valor: 'por_ver',
     titulo: 'Por ver',
-    vacio: 'Nada pendiente de ver. Añade un inmueble con el botón de abajo.',
+    vacio: 'Nada pendiente de ver. Añade un inmueble.',
   },
   {
     valor: 'descartada',
     titulo: 'Descartadas',
-    vacio: 'Aquí aparecerán los inmuebles que descartéis. No se borran, por si cambiáis de idea.',
+    vacio: 'Aquí irán los que descartéis. No se borran, por si cambiáis de idea.',
   },
 ]
 
@@ -29,7 +30,8 @@ export default function App() {
   const [inmuebles, setInmuebles] = useState([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState(null)
-  const [colapsadas, setColapsadas] = useState({ descartada: true })
+  const [pestana, setPestana] = useState('por_ver') // solo se usa en pantallas estrechas
+  const [busqueda, setBusqueda] = useState('')
   const [hoja, setHoja] = useState(null) // null | { tipo: 'nuevo' } | { tipo: 'detalle', id }
   const [guardandoNuevo, setGuardandoNuevo] = useState(false)
 
@@ -120,13 +122,22 @@ export default function App() {
     cargarInmuebles()
   }
 
-  const enGrupo = (grupo) => inmuebles.filter((i) => i.grupo === grupo)
-  const activos = inmuebles.length - enGrupo('descartada').length
-  const candidatas = enGrupo('candidata').length
-  const descartadas = enGrupo('descartada').length
+  const textoBusqueda = normalizar(busqueda).trim()
+  const visibles = textoBusqueda
+    ? inmuebles.filter((i) =>
+        normalizar([i.direccion, i.nota, i.referencia, i.inmobiliaria, i.estado].filter(Boolean).join(' ')).includes(
+          textoBusqueda,
+        ),
+      )
+    : inmuebles
+
+  const enGrupo = (grupo) => visibles.filter((i) => i.grupo === grupo)
+  const activosTodos = inmuebles.filter((i) => i.grupo !== 'descartada')
+  const candidatas = inmuebles.filter((i) => i.grupo === 'candidata').length
+  const descartadas = inmuebles.filter((i) => i.grupo === 'descartada').length
 
   const resumen = [
-    `${activos} en seguimiento`,
+    `${activosTodos.length} en seguimiento`,
     candidatas > 0 && `${candidatas} ${candidatas === 1 ? 'candidata' : 'candidatas'}`,
     descartadas > 0 && `${descartadas} ${descartadas === 1 ? 'descartada' : 'descartadas'}`,
   ]
@@ -142,8 +153,27 @@ export default function App() {
   return (
     <div className="pagina">
       <header className="cabecera">
-        <h1>Pipeline Albaicín</h1>
-        <p className="resumen">{resumen}</p>
+        <div>
+          <h1>Pipeline Albaicín</h1>
+          <p className="resumen">{resumen}</p>
+        </div>
+
+        <div className="cabecera-acciones">
+          <label className="buscador">
+            <IconoBuscar />
+            <input
+              type="search"
+              value={busqueda}
+              placeholder="Buscar calle, nota, referencia…"
+              aria-label="Buscar inmuebles"
+              onChange={(e) => setBusqueda(e.target.value)}
+            />
+          </label>
+          <button type="button" className="boton-cabecera" onClick={() => setHoja({ tipo: 'nuevo' })}>
+            <IconoMas />
+            Añadir inmueble
+          </button>
+        </div>
       </header>
 
       {error && (
@@ -152,27 +182,43 @@ export default function App() {
         </div>
       )}
 
-      {SECCIONES.map(({ valor, titulo, vacio }) => {
-        const items = enGrupo(valor)
-        const cerrada = !!colapsadas[valor]
-        return (
-          <section className="seccion" key={valor}>
-            <button
-              type="button"
-              className="seccion-cabecera"
-              aria-expanded={!cerrada}
-              onClick={() => setColapsadas((c) => ({ ...c, [valor]: !c[valor] }))}
-            >
-              <span className="seccion-titulo">{titulo}</span>
-              <span className="seccion-cuenta">{items.length}</span>
-              <span className={`seccion-flecha ${cerrada ? 'cerrada' : ''}`}>
-                <IconoFlecha />
-              </span>
-            </button>
+      <PanelCifras activos={activosTodos} />
 
-            {!cerrada &&
-              (items.length === 0 ? (
-                <p className="vacio">{vacio}</p>
+      {textoBusqueda && (
+        <p className="resultado-busqueda" aria-live="polite">
+          {visibles.length === 0
+            ? `Ningún inmueble coincide con «${busqueda.trim()}».`
+            : `${visibles.length} ${visibles.length === 1 ? 'resultado' : 'resultados'} para «${busqueda.trim()}».`}
+        </p>
+      )}
+
+      <div className="pestanas" role="tablist" aria-label="Etapa">
+        {SECCIONES.map(({ valor, titulo }) => (
+          <button
+            key={valor}
+            type="button"
+            role="tab"
+            aria-selected={pestana === valor}
+            className="pestana"
+            onClick={() => setPestana(valor)}
+          >
+            {titulo} <span className="pestana-cuenta">{enGrupo(valor).length}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="tablero">
+        {SECCIONES.map(({ valor, titulo, vacio }) => {
+          const items = enGrupo(valor)
+          return (
+            <section className={`columna ${pestana === valor ? 'activa' : ''}`} key={valor} aria-label={titulo}>
+              <h2 className="columna-cabecera">
+                <span className="seccion-titulo">{titulo}</span>
+                <span className="seccion-cuenta">{items.length}</span>
+              </h2>
+
+              {items.length === 0 ? (
+                <p className="vacio">{textoBusqueda ? 'Nada en esta columna.' : vacio}</p>
               ) : (
                 <div className="lista">
                   {items.map((inmueble) => (
@@ -184,10 +230,11 @@ export default function App() {
                     />
                   ))}
                 </div>
-              ))}
-          </section>
-        )
-      })}
+              )}
+            </section>
+          )
+        })}
+      </div>
 
       <button type="button" className="boton-anadir" onClick={() => setHoja({ tipo: 'nuevo' })}>
         <IconoMas />

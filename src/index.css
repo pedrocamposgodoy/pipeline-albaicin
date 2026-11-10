@@ -1,20 +1,25 @@
 /* ------------------------------------------------------------------
    Pipeline Albaicín
-   Blanco de cal, tinta azulada y azul de azulejo. El verde, el ámbar y
+   Crema de cal, tinta parda y terracota. La placa de la calle conserva el azul de azulejo. El verde, el ámbar y
    el rojo se reservan para el semáforo. La pieza distintiva es la placa
    de azulejo con el nombre de la calle, como las del Albaicín.
 ------------------------------------------------------------------- */
 
 :root {
-  --cal: #f1f3f0;
-  --papel: #ffffff;
-  --tinta: #17202e;
-  --tinta-suave: #566074;
-  --linea: #d9dee5;
+  --cal: #f5eee4;
+  --papel: #fffdf9;
+  --tinta: #2b211b;
+  --tinta-suave: #6a5b50;
+  --linea: #e4d8c8;
 
-  --azulejo: #1f4e9c;
-  --azulejo-oscuro: #183d7c;
-  --azulejo-claro: #e7eef9;
+  /* Color de acción: terracota. (El nombre se conserva de la versión anterior.) */
+  --azulejo: #b44f2c;
+  --azulejo-oscuro: #8f3d20;
+  --azulejo-claro: #f6e3d8;
+
+  /* Azul de la placa de la calle */
+  --placa: #1f4e9c;
+  --placa-oscuro: #183d7c;
 
   --verde: #2e7556;
   --verde-fondo: #e5f1ea;
@@ -447,15 +452,15 @@ button {
   margin-bottom: 18px;
   padding: 20px 22px;
   background: #fff;
-  border: 3px solid var(--azulejo);
+  border: 3px solid var(--placa);
   border-radius: 8px;
-  box-shadow: inset 0 0 0 4px #fff, inset 0 0 0 5.5px var(--azulejo);
+  box-shadow: inset 0 0 0 4px #fff, inset 0 0 0 5.5px var(--placa);
   text-align: center;
 }
 
 .placa-texto {
   margin: 0;
-  color: var(--azulejo-oscuro);
+  color: var(--placa-oscuro);
   font-family: var(--fuente-placa);
   font-weight: 400;
   font-size: clamp(1.3rem, 5.4vw, 1.7rem);
@@ -825,4 +830,196 @@ button {
   margin-top: 4px;
   color: var(--tinta-suave);
   font-size: 0.82rem;
+}
+
+/* ---------- Tablero: cabecera, cifras, buscador y columnas ---------- */
+
+.pagina {
+  max-width: 1240px;
+}
+
+.cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px 20px;
+}
+
+.cabecera-acciones {
+  display: flex;
+  flex: 1 1 320px;
+  gap: 10px;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.buscador {
+  position: relative;
+  flex: 1 1 220px;
+  max-width: 440px;
+}
+
+.buscador svg {
+  position: absolute;
+  top: 50%;
+  left: 13px;
+  transform: translateY(-50%);
+  color: var(--tinta-suave);
+  pointer-events: none;
+}
+
+.buscador input {
+  width: 100%;
+  padding: 12px 12px 12px 40px;
+  border: 1.5px solid var(--linea);
+  border-radius: 12px;
+  background: var(--papel);
+}
+
+.boton-cabecera {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--azulejo);
+  color: #fff;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.boton-cabecera:hover {
+  background: var(--azulejo-oscuro);
+}
+
+.panel-cifras {
+  display: none;
+}
+
+.cifra {
+  padding: 14px 16px;
+  background: var(--papel);
+  border: 1px solid var(--linea);
+  border-radius: 14px;
+}
+
+.cifra p {
+  margin: 0;
+}
+
+.cifra-etiqueta {
+  color: var(--tinta-suave);
+  font-size: 0.85rem;
+}
+
+.cifra-valor {
+  margin-top: 2px !important;
+  font-size: 1.55rem;
+  font-weight: 700;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+.cifra-nota {
+  margin-top: 2px !important;
+  color: var(--tinta-suave);
+  font-size: 0.8rem;
+}
+
+.resultado-busqueda {
+  margin: 0 0 12px;
+  color: var(--tinta-suave);
+  font-size: 0.92rem;
+}
+
+.pestanas {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--linea);
+}
+
+.pestana {
+  flex: 1;
+  min-height: 46px;
+  padding: 8px 2px;
+  background: none;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  color: var(--tinta-suave);
+  font-size: 0.92rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.pestana[aria-selected='true'] {
+  border-bottom-color: var(--azulejo);
+  color: var(--azulejo-oscuro);
+}
+
+.pestana-cuenta {
+  margin-left: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.columna {
+  display: none;
+}
+
+.columna.activa {
+  display: block;
+}
+
+.columna-cabecera {
+  display: none; /* en pantallas estrechas lo dice ya la pestaña */
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 4px;
+}
+
+@media (min-width: 700px) {
+  .resumen {
+    display: none;
+  }
+
+  .panel-cifras {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 12px;
+    margin-bottom: 26px;
+  }
+}
+
+@media (min-width: 900px) {
+  .pestanas,
+  .boton-anadir {
+    display: none;
+  }
+
+  .boton-cabecera {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .tablero {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 22px;
+    align-items: start;
+  }
+
+  .columna {
+    display: block;
+    min-width: 0;
+  }
+
+  .columna-cabecera {
+    display: flex;
+  }
+
+  .columna .lista {
+    grid-template-columns: 1fr;
+  }
 }

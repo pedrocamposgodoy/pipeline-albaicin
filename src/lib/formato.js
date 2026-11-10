@@ -51,3 +51,18 @@ export function porcentaje(n) {
   if (n === null || n === undefined) return null
   return `${n.toFixed(1).replace('.', ',')} %`
 }
+
+export function mediana(numeros) {
+  const v = numeros.filter((n) => n !== null && n !== undefined && !Number.isNaN(n)).sort((a, b) => a - b)
+  if (v.length === 0) return null
+  const medio = Math.floor(v.length / 2)
+  return v.length % 2 ? v[medio] : (v[medio - 1] + v[medio]) / 2
+}
+
+// Para buscar sin que importen mayúsculas ni tildes: "Cuesta del PERRO" ~ "cuesta del perro"
+export function normalizar(texto) {
+  return String(texto ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+}
