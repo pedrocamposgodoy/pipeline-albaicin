@@ -16,6 +16,8 @@ export default function App() {
   const [mostrarForm, setMostrarForm] = useState(false)
   const [nuevo, setNuevo] = useState({ direccion: '', precio: '', superficie: '', link: '' })
   const [guardandoNuevo, setGuardandoNuevo] = useState(false)
+  const [extrayendo, setExtrayendo] = useState(false)
+  const [avisoExtraccion, setAvisoExtraccion] = useState(null)
 
   useEffect(() => {
     cargarInmuebles()
@@ -78,8 +80,46 @@ export default function App() {
       setError('No se pudo añadir: ' + error.message)
     } else {
       setNuevo({ direccion: '', precio: '', superficie: '', link: '' })
+      setAvisoExtraccion(null)
       setMostrarForm(false)
       cargarInmuebles()
+    }
+  }
+
+  async function rellenarDesdeIdealista() {
+    const link = nuevo.link.trim()
+    if (!link) {
+      setAvisoExtraccion({ tipo: 'error', texto: 'Pega antes el link de Idealista.' })
+      return
+    }
+
+    setExtrayendo(true)
+    setAvisoExtraccion(null)
+
+    try {
+      const resp = await fetch('/api/extraer-idealista', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ link }),
+      })
+      const datos = await resp.json()
+
+      if (!resp.ok) {
+        setAvisoExtraccion({ tipo: 'error', texto: datos.error || 'No se ha podido leer el anuncio. Rellena a mano.' })
+        return
+      }
+
+      setNuevo((prev) => ({
+        ...prev,
+        direccion: datos.direccion || prev.direccion,
+        precio: datos.precio ?? prev.precio,
+        superficie: datos.superficie ?? prev.superficie,
+      }))
+      setAvisoExtraccion({ tipo: 'ok', texto: 'Datos rellenados. Revísalos antes de guardar.' })
+    } catch (err) {
+      setAvisoExtraccion({ tipo: 'error', texto: 'No se ha podido conectar. Rellena los datos a mano.' })
+    } finally {
+      setExtrayendo(false)
     }
   }
 
@@ -106,9 +146,31 @@ export default function App() {
 
       {mostrarForm && (
         <form className="add-form" onSubmit={crearInmueble}>
-          <label>Dirección / zona</label>
+          <label>Link de Idealista</label>
           <input
             autoFocus
+            value={nuevo.link}
+            onChange={(e) => setNuevo({ ...nuevo, link: e.target.value })}
+            placeholder="https://www.idealista.com/inmueble/..."
+          />
+          <button
+            type="button"
+            className="btn-secondary"
+            style={{ width: '100%', marginBottom: 10 }}
+            onClick={rellenarDesdeIdealista}
+            disabled={extrayendo}
+          >
+            {extrayendo ? 'Leyendo anuncio…' : 'Rellenar desde Idealista'}
+          </button>
+
+          {avisoExtraccion && (
+            <div className={avisoExtraccion.tipo === 'error' ? 'error-msg' : 'aviso-ok'}>
+              {avisoExtraccion.texto}
+            </div>
+          )}
+
+          <label>Dirección / zona</label>
+          <input
             value={nuevo.direccion}
             onChange={(e) => setNuevo({ ...nuevo, direccion: e.target.value })}
             placeholder="Ej. Calle Aljibe del Gato, Albaicín"
@@ -134,14 +196,8 @@ export default function App() {
               />
             </div>
           </div>
-          <label>Link de Idealista</label>
-          <input
-            value={nuevo.link}
-            onChange={(e) => setNuevo({ ...nuevo, link: e.target.value })}
-            placeholder="https://www.idealista.com/inmueble/..."
-          />
           <div className="form-actions">
-            <button type="button" className="btn-secondary" onClick={() => setMostrarForm(false)}>
+            <button type="button" className="btn-secondary" onClick={() => { setMostrarForm(false); setAvisoExtraccion(null) }}>
               Cancelar
             </button>
             <button type="submit" className="btn-primary" disabled={guardandoNuevo}>
