@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabaseClient'
+import { parsearAnuncio } from './lib/parsearAnuncio'
 import InmuebleCard from './InmuebleCard'
+
+const NUEVO_VACIO = { direccion: '', precio: '', superficie: '', link: '', nota: '' }
 
 const GRUPOS = [
   { value: 'candidata', label: 'Candidatas' },
@@ -14,9 +17,9 @@ export default function App() {
   const [error, setError] = useState(null)
   const [colapsados, setColapsados] = useState({ descartada: true })
   const [mostrarForm, setMostrarForm] = useState(false)
-  const [nuevo, setNuevo] = useState({ direccion: '', precio: '', superficie: '', link: '' })
+  const [nuevo, setNuevo] = useState(NUEVO_VACIO)
   const [guardandoNuevo, setGuardandoNuevo] = useState(false)
-  const [extrayendo, setExtrayendo] = useState(false)
+  const [textoPegado, setTextoPegado] = useState('')
   const [avisoExtraccion, setAvisoExtraccion] = useState(null)
 
   useEffect(() => {
@@ -71,6 +74,7 @@ export default function App() {
       precio: nuevo.precio ? Number(nuevo.precio) : null,
       superficie: nuevo.superficie ? Number(nuevo.superficie) : null,
       link: nuevo.link.trim() || null,
+      nota: nuevo.nota.trim() || null,
     }
 
     const { error } = await supabase.from('inmuebles').insert(payload)
@@ -79,48 +83,45 @@ export default function App() {
     if (error) {
       setError('No se pudo añadir: ' + error.message)
     } else {
-      setNuevo({ direccion: '', precio: '', superficie: '', link: '' })
-      setAvisoExtraccion(null)
-      setMostrarForm(false)
+      cerrarFormulario()
       cargarInmuebles()
     }
   }
 
-  async function rellenarDesdeIdealista() {
-    const link = nuevo.link.trim()
-    if (!link) {
-      setAvisoExtraccion({ tipo: 'error', texto: 'Pega antes el link de Idealista.' })
-      return
-    }
+  function extraerDelTexto(texto) {
+    const datos = parsearAnuncio(texto)
 
-    setExtrayendo(true)
-    setAvisoExtraccion(null)
+    setNuevo((prev) => ({
+      direccion: datos.direccion || prev.direccion,
+      precio: datos.precio ?? prev.precio,
+      superficie: datos.superficie ?? prev.superficie,
+      link: datos.link || prev.link,
+      nota: datos.nota || prev.nota,
+    }))
 
-    try {
-      const resp = await fetch('/api/extraer-idealista', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ link }),
+    if (datos.encontrados.length === 0) {
+      setAvisoExtraccion({
+        tipo: 'error',
+        texto: 'No he reconocido nada en ese texto. Rellena los campos a mano.',
       })
-      const datos = await resp.json()
-
-      if (!resp.ok) {
-        setAvisoExtraccion({ tipo: 'error', texto: datos.error || 'No se ha podido leer el anuncio. Rellena a mano.' })
-        return
-      }
-
-      setNuevo((prev) => ({
-        ...prev,
-        direccion: datos.direccion || prev.direccion,
-        precio: datos.precio ?? prev.precio,
-        superficie: datos.superficie ?? prev.superficie,
-      }))
-      setAvisoExtraccion({ tipo: 'ok', texto: 'Datos rellenados. Revísalos antes de guardar.' })
-    } catch (err) {
-      setAvisoExtraccion({ tipo: 'error', texto: 'No se ha podido conectar. Rellena los datos a mano.' })
-    } finally {
-      setExtrayendo(false)
+    } else if (!datos.precio || !datos.superficie) {
+      setAvisoExtraccion({
+        tipo: 'error',
+        texto: `Solo he podido leer: ${datos.encontrados.join(', ')}. Completa el resto a mano (si has copiado desde WhatsApp, prueba copiando desde la página del anuncio).`,
+      })
+    } else {
+      setAvisoExtraccion({
+        tipo: 'ok',
+        texto: `Leído: ${datos.encontrados.join(', ')}. Revisa los datos antes de guardar.`,
+      })
     }
+  }
+
+  function cerrarFormulario() {
+    setNuevo(NUEVO_VACIO)
+    setTextoPegado('')
+    setAvisoExtraccion(null)
+    setMostrarForm(false)
   }
 
   function toggleColapso(grupo) {
@@ -146,22 +147,38 @@ export default function App() {
 
       {mostrarForm && (
         <form className="add-form" onSubmit={crearInmueble}>
-          <label>Link de Idealista</label>
-          <input
-            autoFocus
-            value={nuevo.link}
-            onChange={(e) => setNuevo({ ...nuevo, link: e.target.value })}
-            placeholder="https://www.idealista.com/inmueble/..."
-          />
-          <button
-            type="button"
-            className="btn-secondary"
-            style={{ width: '100%', marginBottom: 10 }}
-            onClick={rellenarDesdeIdealista}
-            disabled={extrayendo}
-          >
-            {extrayendo ? 'Leyendo anuncio…' : 'Rellenar desde Idealista'}
-          </button>
+          <div className="bloque-pegar">
+            <label>Pega aquí el anuncio de Idealista</label>
+            <p className="ayuda">
+              Abre el anuncio, selecciona todo (Ctrl+A), copia (Ctrl+C) y pégalo aquí.
+              Los campos de abajo se rellenan solos.
+            </p>
+            <textarea
+              autoFocus
+              className="textarea-pegar"
+              value={textoPegado}
+              placeholder="Pega el texto del anuncio…"
+              onChange={(e) => setTextoPegado(e.target.value)}
+              onPaste={(e) => {
+                const pegado = e.clipboardData.getData('text')
+                if (pegado) {
+                  e.preventDefault()
+                  setTextoPegado(pegado)
+                  extraerDelTexto(pegado)
+                }
+              }}
+            />
+            {textoPegado && (
+              <button
+                type="button"
+                className="btn-secondary"
+                style={{ width: '100%' }}
+                onClick={() => extraerDelTexto(textoPegado)}
+              >
+                Volver a leer el texto
+              </button>
+            )}
+          </div>
 
           {avisoExtraccion && (
             <div className={avisoExtraccion.tipo === 'error' ? 'error-msg' : 'aviso-ok'}>
@@ -196,8 +213,20 @@ export default function App() {
               />
             </div>
           </div>
+          <label>Link de Idealista</label>
+          <input
+            value={nuevo.link}
+            onChange={(e) => setNuevo({ ...nuevo, link: e.target.value })}
+            placeholder="https://www.idealista.com/inmueble/..."
+          />
+          <label>Nota</label>
+          <textarea
+            value={nuevo.nota}
+            onChange={(e) => setNuevo({ ...nuevo, nota: e.target.value })}
+            placeholder="Habitaciones, estado, lo que quieras recordar…"
+          />
           <div className="form-actions">
-            <button type="button" className="btn-secondary" onClick={() => { setMostrarForm(false); setAvisoExtraccion(null) }}>
+            <button type="button" className="btn-secondary" onClick={cerrarFormulario}>
               Cancelar
             </button>
             <button type="submit" className="btn-primary" disabled={guardandoNuevo}>

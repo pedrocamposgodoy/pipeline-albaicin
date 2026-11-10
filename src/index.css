@@ -115,6 +115,27 @@ h1 {
   margin-bottom: 3px;
 }
 
+.bloque-pegar {
+  background: var(--bg);
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 14px;
+}
+
+.bloque-pegar .ayuda {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin: 0 0 8px;
+  line-height: 1.4;
+}
+
+.textarea-pegar {
+  min-height: 70px !important;
+  background: var(--surface) !important;
+  font-size: 0.85rem !important;
+}
+
 .form-actions {
   display: flex;
   gap: 10px;
