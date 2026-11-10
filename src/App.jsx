@@ -180,6 +180,7 @@ export default function App() {
                       key={inmueble.id}
                       inmueble={inmueble}
                       onAbrir={(id) => setHoja({ tipo: 'detalle', id })}
+                      onSemaforo={(id, semaforo) => actualizarInmueble(id, { semaforo })}
                     />
                   ))}
                 </div>

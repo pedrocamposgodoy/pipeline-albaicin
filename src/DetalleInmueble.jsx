@@ -6,19 +6,30 @@ import {
   aTexto,
   euros,
   miles,
+  porcentaje,
   precioPorM2,
+  rentabilidadBruta,
 } from './lib/formato'
 import { IconoEnlace } from './iconos'
 import Direccion from './Direccion'
+
+// Impuestos y gastos de compra que se suman al precio (ITP en Andalucía, 7 %).
+// Es una aproximación: notaría y registro no están incluidos.
+const GASTOS_COMPRA_PCT = 7
 
 // Ficha completa de un inmueble: datos, enlace al anuncio y seguimiento.
 export default function DetalleInmueble({ inmueble, onUpdate }) {
   const [editando, setEditando] = useState(false)
   const [nota, setNota] = useState(inmueble.nota || '')
   const [guardandoNota, setGuardandoNota] = useState(false)
+  const [alquiler, setAlquiler] = useState(inmueble.alquiler_mes ?? '')
 
   const m2 = precioPorM2(inmueble.precio, inmueble.superficie)
   const tieneCamposExtra = 'habitaciones' in inmueble
+  const tieneAlquiler = 'alquiler_mes' in inmueble
+  const alquilerNum = aNumero(alquiler)
+  const rentab = rentabilidadBruta(inmueble.precio, alquilerNum)
+  const rentabConImpuestos = rentabilidadBruta(inmueble.precio, alquilerNum, GASTOS_COMPRA_PCT)
 
   const datos = [
     ['Superficie', inmueble.superficie != null ? `${miles(inmueble.superficie)} m²` : null],
@@ -28,6 +39,11 @@ export default function DetalleInmueble({ inmueble, onUpdate }) {
     ['Referencia', inmueble.referencia],
     ['Inmobiliaria', inmueble.inmobiliaria],
   ].filter(([, valor]) => valor !== null && valor !== undefined && valor !== '')
+
+  function guardarAlquiler() {
+    if (alquilerNum === (inmueble.alquiler_mes ?? null)) return
+    onUpdate(inmueble.id, { alquiler_mes: alquilerNum })
+  }
 
   function guardarNota() {
     if (nota === (inmueble.nota || '')) return
@@ -82,6 +98,38 @@ export default function DetalleInmueble({ inmueble, onUpdate }) {
         </a>
       ) : (
         <p className="sin-enlace">Este inmueble no tiene enlace. Puedes añadirlo en Editar datos.</p>
+      )}
+
+      {tieneAlquiler && (
+        <div className="control">
+          <h3>Alquiler estimado</h3>
+          <div className="campo-alquiler">
+            <input
+              id="d-alquiler"
+              className="input-alquiler"
+              type="number"
+              inputMode="numeric"
+              min="0"
+              value={alquiler}
+              placeholder="€ al mes"
+              aria-label="Alquiler estimado al mes en euros"
+              onChange={(e) => setAlquiler(e.target.value)}
+              onBlur={guardarAlquiler}
+            />
+            <span className="unidad">€ al mes</span>
+          </div>
+          {rentab !== null ? (
+            <p className="rentab">
+              <strong>{porcentaje(rentab)}</strong> de rentabilidad bruta
+              <span className="rentab-extra">
+                {porcentaje(rentabConImpuestos)} contando un {GASTOS_COMPRA_PCT} % de impuestos de compra.
+                Antes de gastos, IBI, huecos sin inquilino e impuestos sobre el alquiler.
+              </span>
+            </p>
+          ) : (
+            <p className="ayuda">Pon una cifra y verás la rentabilidad bruta anual sobre el precio.</p>
+          )}
+        </div>
       )}
 
       <div className="control">

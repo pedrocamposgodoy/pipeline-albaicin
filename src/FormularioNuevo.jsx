@@ -23,8 +23,41 @@ export default function FormularioNuevo({ onGuardar, onCancelar, guardando }) {
 
   const poner = (campo) => (e) => setNuevo({ ...nuevo, [campo]: e.target.value })
 
+  // Si lo pegado es solo un enlace, se intenta leer el anuncio desde el servidor.
+  // Idealista suele bloquearlo: en ese caso se avisa y se sigue a mano.
+  async function leerEnlace(enlace) {
+    setAviso({ tipo: 'parcial', texto: 'Intentando leer el anuncio…' })
+    try {
+      const r = await fetch(`/api/importar?url=${encodeURIComponent(enlace)}`)
+      const datos = await r.json()
+      if (!datos.ok) throw new Error('bloqueado')
+      const leido = parsearAnuncio(`${datos.og.titulo ?? ''}\n${datos.og.descripcion ?? ''}\n${enlace}`)
+      setNuevo((previo) => {
+        const siguiente = { ...previo }
+        for (const campo of Object.keys(VACIO)) {
+          if (campo !== 'nota' && leido[campo] != null) siguiente[campo] = leido[campo]
+        }
+        if (!siguiente.direccion && datos.og.titulo) siguiente.direccion = datos.og.titulo
+        return siguiente
+      })
+      setAviso({ tipo: 'ok', texto: 'Anuncio leído. Revisa los datos antes de guardar.' })
+    } catch {
+      setAviso({
+        tipo: 'parcial',
+        texto:
+          'Idealista no deja leer el anuncio desde aquí. Se ha guardado el enlace; para el resto, abre el anuncio, copia todo el texto y pégalo en el recuadro.',
+      })
+    }
+  }
+
   function leerTexto(texto) {
     const datos = parsearAnuncio(texto)
+    const soloEnlace = /^https:\/\/(www\.)?(idealista\.com|grupotorres\.com)\/\S+$/.test(texto.trim())
+    if (soloEnlace) {
+      setNuevo((previo) => ({ ...previo, link: datos.link ?? texto.trim() }))
+      leerEnlace(texto.trim())
+      return
+    }
 
     setNuevo((previo) => {
       const siguiente = { ...previo }

@@ -37,3 +37,17 @@ export function aTexto(texto) {
   const limpio = String(texto ?? '').trim()
   return limpio === '' ? null : limpio
 }
+
+// Rentabilidad bruta anual en %: alquiler de 12 meses sobre el precio de compra.
+// Es antes de impuestos, gastos, huecos sin inquilino e IBI. Orientativa.
+export function rentabilidadBruta(precio, alquilerMes, gastosCompraPct = 0) {
+  if (!precio || !alquilerMes) return null
+  const coste = Number(precio) * (1 + gastosCompraPct / 100)
+  return (Number(alquilerMes) * 12 * 100) / coste
+}
+
+// 6.0449 -> "6,0 %"
+export function porcentaje(n) {
+  if (n === null || n === undefined) return null
+  return `${n.toFixed(1).replace('.', ',')} %`
+}

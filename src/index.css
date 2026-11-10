@@ -161,10 +161,8 @@ button {
 
 .ficha {
   display: grid;
-  gap: 3px;
   width: 100%;
-  padding: 14px 16px 12px;
-  text-align: left;
+  padding: 4px 4px 6px 8px;
   background: var(--papel);
   border: 1px solid var(--linea);
   border-left: 8px solid var(--linea);
@@ -174,6 +172,17 @@ button {
 
 .ficha:hover {
   transform: translateY(-1px);
+}
+
+.ficha-cuerpo {
+  display: grid;
+  gap: 3px;
+  width: 100%;
+  padding: 10px 8px 4px;
+  text-align: left;
+  background: none;
+  border: 0;
+  border-radius: 8px;
 }
 
 .ficha.semaforo-verde {
@@ -236,8 +245,58 @@ button {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 8px;
+  padding: 0 8px 0 0;
   font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.semaforo-rapido {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+/* Zona táctil de 44 px; el punto visible es más pequeño */
+.bola-semaforo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  background: none;
+  border: 0;
+}
+
+.bola-semaforo .punto {
+  width: 18px;
+  height: 18px;
+  opacity: 0.35;
+  box-shadow: 0 0 0 2px transparent;
+  transition: opacity 0.12s ease, box-shadow 0.12s ease;
+}
+
+.bola-semaforo[aria-checked='true'] .punto {
+  opacity: 1;
+  box-shadow: 0 0 0 3px var(--papel), 0 0 0 5px currentColor;
+}
+
+.bola-semaforo.semaforo-verde {
+  color: var(--verde);
+}
+.bola-semaforo.semaforo-ambar {
+  color: var(--ambar-barra);
+}
+.bola-semaforo.semaforo-rojo {
+  color: var(--rojo);
+}
+
+.semaforo-rapido .estado-semaforo {
+  margin-left: 4px;
+}
+
+.dato-rentab {
+  color: var(--azulejo-oscuro);
   font-weight: 600;
 }
 
@@ -726,4 +785,44 @@ button {
     animation: none !important;
     transition: none !important;
   }
+}
+
+/* ---------- Alquiler estimado y rentabilidad ---------- */
+
+.campo-alquiler {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.input-alquiler {
+  width: 9.5rem;
+  padding: 11px 12px;
+  border: 1.5px solid var(--linea);
+  border-radius: 10px;
+  background: var(--papel);
+  font-variant-numeric: tabular-nums;
+}
+
+.unidad {
+  color: var(--tinta-suave);
+  font-size: 0.9rem;
+}
+
+.rentab {
+  margin: 10px 0 0;
+  font-size: 0.95rem;
+}
+
+.rentab strong {
+  color: var(--azulejo-oscuro);
+  font-size: 1.25rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.rentab-extra {
+  display: block;
+  margin-top: 4px;
+  color: var(--tinta-suave);
+  font-size: 0.82rem;
 }
