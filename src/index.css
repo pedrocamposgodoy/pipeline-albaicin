@@ -190,16 +190,16 @@ h1 {
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-left: 4px solid var(--border);
+  border-left: 8px solid var(--border);
   border-radius: 12px;
   padding: 12px 14px;
   margin-bottom: 10px;
-  transition: opacity 0.2s;
+  transition: opacity 0.2s, background 0.2s;
 }
 
-.card.semaforo-verde { border-left-color: var(--verde); }
-.card.semaforo-ambar { border-left-color: var(--ambar); }
-.card.semaforo-rojo { border-left-color: var(--rojo); }
+.card.semaforo-verde { border-left-color: var(--verde); background: var(--verde-bg); }
+.card.semaforo-ambar { border-left-color: var(--ambar); background: var(--ambar-bg); }
+.card.semaforo-rojo { border-left-color: var(--rojo); background: var(--rojo-bg); }
 
 .card-top {
   display: flex;
