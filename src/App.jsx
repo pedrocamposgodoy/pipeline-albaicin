@@ -1,26 +1,37 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabaseClient'
-import { parsearAnuncio } from './lib/parsearAnuncio'
+import { aNumero, aTexto } from './lib/formato'
 import InmuebleCard from './InmuebleCard'
+import DetalleInmueble from './DetalleInmueble'
+import FormularioNuevo from './FormularioNuevo'
+import Hoja from './Hoja'
+import { IconoFlecha, IconoMas } from './iconos'
 
-const NUEVO_VACIO = { direccion: '', precio: '', superficie: '', link: '', nota: '' }
-
-const GRUPOS = [
-  { value: 'candidata', label: 'Candidatas' },
-  { value: 'por_ver', label: 'Por ver' },
-  { value: 'descartada', label: 'Descartadas' },
+const SECCIONES = [
+  {
+    valor: 'candidata',
+    titulo: 'Candidatas',
+    vacio: 'Todavía no hay candidatas. Marca un inmueble como candidata cuando queráis seguirlo de cerca.',
+  },
+  {
+    valor: 'por_ver',
+    titulo: 'Por ver',
+    vacio: 'Nada pendiente de ver. Añade un inmueble con el botón de abajo.',
+  },
+  {
+    valor: 'descartada',
+    titulo: 'Descartadas',
+    vacio: 'Aquí aparecerán los inmuebles que descartéis. No se borran, por si cambiáis de idea.',
+  },
 ]
 
 export default function App() {
   const [inmuebles, setInmuebles] = useState([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState(null)
-  const [colapsados, setColapsados] = useState({ descartada: true })
-  const [mostrarForm, setMostrarForm] = useState(false)
-  const [nuevo, setNuevo] = useState(NUEVO_VACIO)
+  const [colapsadas, setColapsadas] = useState({ descartada: true })
+  const [hoja, setHoja] = useState(null) // null | { tipo: 'nuevo' } | { tipo: 'detalle', id }
   const [guardandoNuevo, setGuardandoNuevo] = useState(false)
-  const [textoPegado, setTextoPegado] = useState('')
-  const [avisoExtraccion, setAvisoExtraccion] = useState(null)
 
   useEffect(() => {
     cargarInmuebles()
@@ -54,210 +65,149 @@ export default function App() {
   }
 
   async function actualizarInmueble(id, cambios) {
-    // Actualización optimista: se ve el cambio al instante en este dispositivo
-    setInmuebles((prev) => prev.map((i) => (i.id === id ? { ...i, ...cambios } : i)))
+    // Se ve el cambio al instante en este dispositivo y luego se confirma
+    setInmuebles((previos) => previos.map((i) => (i.id === id ? { ...i, ...cambios } : i)))
 
     const { error } = await supabase.from('inmuebles').update(cambios).eq('id', id)
     if (error) {
       setError('No se pudo guardar el cambio: ' + error.message)
-      cargarInmuebles() // revertir a lo real si falla
-    }
-  }
-
-  async function crearInmueble(e) {
-    e.preventDefault()
-    if (!nuevo.direccion.trim()) return
-
-    setGuardandoNuevo(true)
-    const payload = {
-      direccion: nuevo.direccion.trim(),
-      precio: nuevo.precio ? Number(nuevo.precio) : null,
-      superficie: nuevo.superficie ? Number(nuevo.superficie) : null,
-      link: nuevo.link.trim() || null,
-      nota: nuevo.nota.trim() || null,
-    }
-
-    const { error } = await supabase.from('inmuebles').insert(payload)
-    setGuardandoNuevo(false)
-
-    if (error) {
-      setError('No se pudo añadir: ' + error.message)
-    } else {
-      cerrarFormulario()
       cargarInmuebles()
     }
   }
 
-  function extraerDelTexto(texto) {
-    const datos = parsearAnuncio(texto)
+  async function crearInmueble(datos) {
+    setGuardandoNuevo(true)
 
-    setNuevo((prev) => ({
-      direccion: datos.direccion || prev.direccion,
-      precio: datos.precio ?? prev.precio,
-      superficie: datos.superficie ?? prev.superficie,
-      link: datos.link || prev.link,
-      nota: datos.nota || prev.nota,
-    }))
-
-    if (datos.encontrados.length === 0) {
-      setAvisoExtraccion({
-        tipo: 'error',
-        texto: 'No he reconocido nada en ese texto. Rellena los campos a mano.',
-      })
-    } else if (!datos.precio || !datos.superficie) {
-      setAvisoExtraccion({
-        tipo: 'error',
-        texto: `Solo he podido leer: ${datos.encontrados.join(', ')}. Completa el resto a mano (si has copiado desde WhatsApp, prueba copiando desde la página del anuncio).`,
-      })
-    } else {
-      setAvisoExtraccion({
-        tipo: 'ok',
-        texto: `Leído: ${datos.encontrados.join(', ')}. Revisa los datos antes de guardar.`,
-      })
+    const base = {
+      direccion: datos.direccion.trim(),
+      precio: aNumero(datos.precio),
+      superficie: aNumero(datos.superficie),
+      link: aTexto(datos.link),
+      nota: aTexto(datos.nota),
     }
+    const extras = {
+      habitaciones: aNumero(datos.habitaciones),
+      banos: aNumero(datos.banos),
+      estado: aTexto(datos.estado),
+      referencia: aTexto(datos.referencia),
+      inmobiliaria: aTexto(datos.inmobiliaria),
+    }
+
+    let { error } = await supabase.from('inmuebles').insert({ ...base, ...extras })
+
+    // Si la tabla todavía no tiene las columnas nuevas, se guardan dentro de la nota
+    if (error && (error.code === 'PGRST204' || /column/i.test(error.message))) {
+      const resumen = [
+        extras.habitaciones != null && `${extras.habitaciones} hab.`,
+        extras.banos != null && `${extras.banos} baños`,
+        extras.estado,
+        extras.referencia && `ref. ${extras.referencia}`,
+        extras.inmobiliaria,
+      ]
+        .filter(Boolean)
+        .join(', ')
+      const nota = [base.nota, resumen].filter(Boolean).join('\n')
+      ;({ error } = await supabase.from('inmuebles').insert({ ...base, nota: nota || null }))
+    }
+
+    setGuardandoNuevo(false)
+
+    if (error) {
+      setError('No se pudo añadir: ' + error.message)
+      return
+    }
+    setHoja(null)
+    cargarInmuebles()
   }
 
-  function cerrarFormulario() {
-    setNuevo(NUEVO_VACIO)
-    setTextoPegado('')
-    setAvisoExtraccion(null)
-    setMostrarForm(false)
-  }
+  const enGrupo = (grupo) => inmuebles.filter((i) => i.grupo === grupo)
+  const activos = inmuebles.length - enGrupo('descartada').length
+  const candidatas = enGrupo('candidata').length
+  const descartadas = enGrupo('descartada').length
 
-  function toggleColapso(grupo) {
-    setColapsados((prev) => ({ ...prev, [grupo]: !prev[grupo] }))
-  }
+  const resumen = [
+    `${activos} en seguimiento`,
+    candidatas > 0 && `${candidatas} ${candidatas === 1 ? 'candidata' : 'candidatas'}`,
+    descartadas > 0 && `${descartadas} ${descartadas === 1 ? 'descartada' : 'descartadas'}`,
+  ]
+    .filter(Boolean)
+    .join(', ')
+
+  const abierto = hoja?.tipo === 'detalle' ? inmuebles.find((i) => i.id === hoja.id) : null
 
   if (cargando) {
-    return <div className="status-msg">Cargando…</div>
+    return <div className="estado-carga">Cargando inmuebles…</div>
   }
 
   return (
-    <div>
-      <h1>Pipeline Albaicín</h1>
-      <p className="subtitle">Inmuebles en seguimiento — Pedro y Ángel</p>
+    <div className="pagina">
+      <header className="cabecera">
+        <h1>Pipeline Albaicín</h1>
+        <p className="resumen">{resumen}</p>
+      </header>
 
-      {error && <div className="error-msg">{error}</div>}
-
-      {!mostrarForm && (
-        <button className="add-form-toggle" onClick={() => setMostrarForm(true)}>
-          + Añadir inmueble
-        </button>
+      {error && (
+        <div className="aviso aviso-error" role="alert">
+          {error}
+        </div>
       )}
 
-      {mostrarForm && (
-        <form className="add-form" onSubmit={crearInmueble}>
-          <div className="bloque-pegar">
-            <label>Pega aquí el anuncio de Idealista</label>
-            <p className="ayuda">
-              Abre el anuncio, selecciona todo (Ctrl+A), copia (Ctrl+C) y pégalo aquí.
-              Los campos de abajo se rellenan solos.
-            </p>
-            <textarea
-              autoFocus
-              className="textarea-pegar"
-              value={textoPegado}
-              placeholder="Pega el texto del anuncio…"
-              onChange={(e) => setTextoPegado(e.target.value)}
-              onPaste={(e) => {
-                const pegado = e.clipboardData.getData('text')
-                if (pegado) {
-                  e.preventDefault()
-                  setTextoPegado(pegado)
-                  extraerDelTexto(pegado)
-                }
-              }}
-            />
-            {textoPegado && (
-              <button
-                type="button"
-                className="btn-secondary"
-                style={{ width: '100%' }}
-                onClick={() => extraerDelTexto(textoPegado)}
-              >
-                Volver a leer el texto
-              </button>
-            )}
-          </div>
-
-          {avisoExtraccion && (
-            <div className={avisoExtraccion.tipo === 'error' ? 'error-msg' : 'aviso-ok'}>
-              {avisoExtraccion.texto}
-            </div>
-          )}
-
-          <label>Dirección / zona</label>
-          <input
-            value={nuevo.direccion}
-            onChange={(e) => setNuevo({ ...nuevo, direccion: e.target.value })}
-            placeholder="Ej. Calle Aljibe del Gato, Albaicín"
-            required
-          />
-          <div className="field-row">
-            <div>
-              <label>Precio (€)</label>
-              <input
-                type="number"
-                value={nuevo.precio}
-                onChange={(e) => setNuevo({ ...nuevo, precio: e.target.value })}
-                placeholder="320000"
-              />
-            </div>
-            <div>
-              <label>Superficie (m²)</label>
-              <input
-                type="number"
-                value={nuevo.superficie}
-                onChange={(e) => setNuevo({ ...nuevo, superficie: e.target.value })}
-                placeholder="280"
-              />
-            </div>
-          </div>
-          <label>Link de Idealista</label>
-          <input
-            value={nuevo.link}
-            onChange={(e) => setNuevo({ ...nuevo, link: e.target.value })}
-            placeholder="https://www.idealista.com/inmueble/..."
-          />
-          <label>Nota</label>
-          <textarea
-            value={nuevo.nota}
-            onChange={(e) => setNuevo({ ...nuevo, nota: e.target.value })}
-            placeholder="Habitaciones, estado, lo que quieras recordar…"
-          />
-          <div className="form-actions">
-            <button type="button" className="btn-secondary" onClick={cerrarFormulario}>
-              Cancelar
-            </button>
-            <button type="submit" className="btn-primary" disabled={guardandoNuevo}>
-              {guardandoNuevo ? 'Guardando…' : 'Guardar'}
-            </button>
-          </div>
-        </form>
-      )}
-
-      {GRUPOS.map(({ value, label }) => {
-        const items = inmuebles.filter((i) => i.grupo === value)
-        const colapsado = !!colapsados[value]
+      {SECCIONES.map(({ valor, titulo, vacio }) => {
+        const items = enGrupo(valor)
+        const cerrada = !!colapsadas[valor]
         return (
-          <div className="grupo-section" key={value}>
-            <div className="grupo-header" onClick={() => toggleColapso(value)}>
-              <span className="grupo-titulo">{label}</span>
-              <span className="grupo-count">({items.length})</span>
-              <span className={`grupo-chevron ${colapsado ? 'collapsed' : ''}`}>▾</span>
-            </div>
-            {!colapsado && (
-              items.length === 0 ? (
-                <div className="empty-grupo">Nada por aquí todavía.</div>
+          <section className="seccion" key={valor}>
+            <button
+              type="button"
+              className="seccion-cabecera"
+              aria-expanded={!cerrada}
+              onClick={() => setColapsadas((c) => ({ ...c, [valor]: !c[valor] }))}
+            >
+              <span className="seccion-titulo">{titulo}</span>
+              <span className="seccion-cuenta">{items.length}</span>
+              <span className={`seccion-flecha ${cerrada ? 'cerrada' : ''}`}>
+                <IconoFlecha />
+              </span>
+            </button>
+
+            {!cerrada &&
+              (items.length === 0 ? (
+                <p className="vacio">{vacio}</p>
               ) : (
-                items.map((inmueble) => (
-                  <InmuebleCard key={inmueble.id} inmueble={inmueble} onUpdate={actualizarInmueble} />
-                ))
-              )
-            )}
-          </div>
+                <div className="lista">
+                  {items.map((inmueble) => (
+                    <InmuebleCard
+                      key={inmueble.id}
+                      inmueble={inmueble}
+                      onAbrir={(id) => setHoja({ tipo: 'detalle', id })}
+                    />
+                  ))}
+                </div>
+              ))}
+          </section>
         )
       })}
+
+      <button type="button" className="boton-anadir" onClick={() => setHoja({ tipo: 'nuevo' })}>
+        <IconoMas />
+        Añadir inmueble
+      </button>
+
+      {hoja?.tipo === 'nuevo' && (
+        <Hoja titulo="Añadir inmueble" onCerrar={() => setHoja(null)}>
+          <FormularioNuevo
+            guardando={guardandoNuevo}
+            onGuardar={crearInmueble}
+            onCancelar={() => setHoja(null)}
+          />
+        </Hoja>
+      )}
+
+      {abierto && (
+        <Hoja titulo={abierto.direccion} onCerrar={() => setHoja(null)}>
+          <DetalleInmueble key={abierto.id} inmueble={abierto} onUpdate={actualizarInmueble} />
+        </Hoja>
+      )}
     </div>
   )
 }

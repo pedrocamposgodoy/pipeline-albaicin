@@ -1,89 +1,50 @@
-import { useState } from 'react'
+import { SEMAFOROS, euros, miles, precioPorM2 } from './lib/formato'
+import { IconoCheck } from './iconos'
+import Direccion from './Direccion'
 
-const GRUPOS = [
-  { value: 'por_ver', label: 'Por ver' },
-  { value: 'candidata', label: 'Candidata' },
-  { value: 'descartada', label: 'Descartada' },
-]
-
-function formatoPrecio(n) {
-  if (n === null || n === undefined || n === '') return null
-  return new Intl.NumberFormat('es-ES').format(n) + ' €'
-}
-
-export default function InmuebleCard({ inmueble, onUpdate }) {
-  const [nota, setNota] = useState(inmueble.nota || '')
-  const [guardandoNota, setGuardandoNota] = useState(false)
-
-  const datos = [
-    inmueble.precio != null && formatoPrecio(inmueble.precio),
-    inmueble.superficie != null && `${inmueble.superficie} m²`,
-  ].filter(Boolean).join(' · ')
-
-  function handleNotaBlur() {
-    if (nota !== (inmueble.nota || '')) {
-      setGuardandoNota(true)
-      onUpdate(inmueble.id, { nota }).finally(() => setGuardandoNota(false))
-    }
-  }
+// Tarjeta resumen: lo justo para reconocer el inmueble sin abrir el enlace.
+// Al pulsarla se abre la ficha con todos los datos.
+export default function InmuebleCard({ inmueble, onAbrir }) {
+  const m2 = precioPorM2(inmueble.precio, inmueble.superficie)
+  const etiqueta = SEMAFOROS.find((s) => s.valor === inmueble.semaforo)?.etiqueta
+  const primeraLineaNota = (inmueble.nota || '').split('\n')[0]
 
   return (
-    <div className={`card semaforo-${inmueble.semaforo}`}>
-      <div className="card-top">
-        <div>
-          <div className="card-direccion">
-            {inmueble.link ? (
-              <a href={inmueble.link} target="_blank" rel="noopener noreferrer">
-                {inmueble.direccion}
-              </a>
-            ) : (
-              inmueble.direccion
-            )}
-          </div>
-          {datos && <div className="card-datos">{datos}</div>}
-        </div>
-      </div>
+    <button
+      type="button"
+      className={`ficha semaforo-${inmueble.semaforo} ${inmueble.grupo === 'descartada' ? 'ficha-descartada' : ''}`}
+      onClick={() => onAbrir(inmueble.id)}
+    >
+      <span className="ficha-precio">{euros(inmueble.precio) ?? 'Precio sin indicar'}</span>
+      <span className="ficha-direccion">
+        <Direccion texto={inmueble.direccion} />
+      </span>
 
-      <div className="card-controls">
-        <div className="semaforo-dots">
-          {['verde', 'ambar', 'rojo'].map((color) => (
-            <button
-              key={color}
-              className={`dot dot-${color} ${inmueble.semaforo === color ? 'active' : ''}`}
-              aria-label={`Marcar ${color}`}
-              onClick={() => onUpdate(inmueble.id, { semaforo: color })}
-            />
-          ))}
-        </div>
+      <span className="ficha-datos">
+        {inmueble.superficie != null && <span>{miles(inmueble.superficie)} m²</span>}
+        {m2 && <span>{miles(m2)} €/m²</span>}
+        {inmueble.habitaciones != null && <span>{inmueble.habitaciones} hab.</span>}
+        {inmueble.banos != null && (
+          <span>
+            {inmueble.banos} {inmueble.banos === 1 ? 'baño' : 'baños'}
+          </span>
+        )}
+      </span>
 
-        <select
-          className="grupo-select"
-          value={inmueble.grupo}
-          onChange={(e) => onUpdate(inmueble.id, { grupo: e.target.value })}
-        >
-          {GRUPOS.map((g) => (
-            <option key={g.value} value={g.value}>{g.label}</option>
-          ))}
-        </select>
+      {primeraLineaNota && <span className="ficha-nota">{primeraLineaNota}</span>}
 
-        <label className="visto-toggle">
-          <input
-            type="checkbox"
-            checked={!!inmueble.visto}
-            onChange={(e) => onUpdate(inmueble.id, { visto: e.target.checked })}
-          />
-          Visto
-        </label>
-      </div>
-
-      <textarea
-        className="nota-edit"
-        placeholder="Nota..."
-        value={nota}
-        onChange={(e) => setNota(e.target.value)}
-        onBlur={handleNotaBlur}
-      />
-      {guardandoNota && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Guardando…</div>}
-    </div>
+      <span className="ficha-pie">
+        <span className="estado-semaforo">
+          <i className="punto" />
+          {etiqueta}
+        </span>
+        {inmueble.visto && (
+          <span className="marca-visto">
+            <IconoCheck />
+            Visto
+          </span>
+        )}
+      </span>
+    </button>
   )
 }
